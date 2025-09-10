@@ -54,8 +54,8 @@ API_ID = 8186557
 API_HASH = "efd77b34c69c164ce158037ff5a0d117"
 Bots = [] 
 OFF = True
-DEVS = ["TopVeGa", "DevVeGa"]
-ch = "updatevega"
+DEVS = ["DEV_BLAL", "DEV_BLAL"]
+ch = "BDB0B"
 
 # ============ تخزين و قاعدة بيانات db ============
 MONGO_URI = "mongodb+srv://VeGaMusIc:VeGaOne@cluster0.nf0ml.mongodb.net/?retryWrites=true&w=majority"
@@ -104,7 +104,7 @@ ss()
 
 @Client.on_message(filters.command("تفريغ التخزين", "") & filters.private)
 async def clear_storage(client, message):
-    if message.from_user.id in [7654641648, 8122544723]:
+    if message.from_user.id in [7291869416, 7291869416]:
     
         keyboard = InlineKeyboardMarkup(
             [
@@ -412,7 +412,7 @@ async def clear_blocked_users(client, message):
 
 @Client.on_message(filters.command("رفع مطور", ""))
 async def promote_dev(client, message):
-    if message.from_user.id not in [7654641648, 8122544723]:
+    if message.from_user.id not in [7291869416, 7291869416]:
         return await message.reply_text("ليس لديك صلاحية لتنفيذ هذا الأمر.")
 
     m = await client.ask(message.chat.id, "ارسل معرف المستخدم الان")
