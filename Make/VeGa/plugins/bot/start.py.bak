@@ -1,0 +1,742 @@
+import asyncio
+import random
+import time
+from pyrogram import Client, filters
+from VeGa import app
+from config import OWNER_ID
+from os import getenv
+from VeGa.utils.database import get_served_chats, get_served_users, set_must, get_must, del_must, get_must_ch, set_must_ch
+from VeGa.utils.database import get_active_chats, remove_active_video_chat, remove_active_chat
+import os 
+from pyrogram.enums import ParseMode
+import shutil
+import asyncio 
+from pyrogram import filters
+from pyrogram.enums import ChatType
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from youtubesearchpython.__future__ import VideosSearch
+
+import config
+from config import BANNED_USERS, HELP_VID_URL, START_VIDS, STICKERS
+from strings import get_string
+from VeGa import app
+from VeGa.misc import _boot_
+from VeGa.plugins.sudo.sudoers import sudoers_list
+from VeGa.utils import bot_sys_stats
+from VeGa.utils.database import (
+    add_served_chat,
+    add_served_user,
+    blacklisted_chats,
+    get_lang,
+    get_served_chats,
+    get_served_users,
+    is_banned_user,
+    is_on_off,
+)
+from VeGa.utils.decorators.language import LanguageStart
+from VeGa.utils.formatters import get_readable_time
+from VeGa.utils.inline import private_panel, start_panel
+from VeGa.utils.inline.help import help_keyboard
+
+from pyrogram.enums import ChatMembersFilter, ChatMemberStatus
+from pyrogram.types import ChatPermissions, ChatPrivileges
+import os
+import re
+import aiofiles
+import aiohttp
+import random
+import numpy as np
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from typing import Union, Optional
+from config import FAILED, YOUTUBE_IMG_URL
+from googletrans import Translator
+from config import OWNER_ID
+from pyrogram import filters
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+import random
+import asyncio
+from youtubesearchpython import VideosSearch
+import requests
+from PIL import Image
+import os
+
+
+
+
+OWNER_ID = getenv("OWNER_ID")
+
+
+
+
+async def get_admin_users(chat_id):
+    admin_list = []
+    async for member in app.get_chat_members(chat_id, filter=ChatMembersFilter.ADMINISTRATORS):
+        admin_list.append(member.user.mention)
+    return admin_list
+
+
+
+async def delete_sticker_after_delay(message, delay):
+    await asyncio.sleep(delay)
+    await message.delete()
+
+
+
+
+
+
+
+
+
+
+# متغيرات التخزين
+DEFAULT_START_CAPTION = """<b>
+┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈
+<u>أهلاً بك في بوت</u>: {app_mention}
+
+• استطيع تشغيل الاغاني فالكول
+• واعمل علي حـمايه الجروبـات
+• يمكنك اضافتي إلى قناتك أو مجموعتك
+• اعمل بسرعه 100 Mbps في الثانية
+• لدي الالعاب كثير (بنك. كت. تويت. رو)
+• تحميل من اليوتيوب بالخاص أو المجموعة
+┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈</b>
+"""
+
+CUSTOM_START_CAPTION = None
+START_ENABLED = True
+WAITING_FOR_CAPTION = {}
+
+async def delete_sticker_after_delay(sticker_message, delay):
+    await asyncio.sleep(delay)
+    try:
+        await sticker_message.delete()
+    except:
+        pass
+
+@app.on_message(filters.command(["تغير رسالة استارت"], "") & filters.private & ~BANNED_USERS, group=509876613)
+@LanguageStart
+async def set_start_caption(client, message: Message, _):
+    if str(message.from_user.id) == OWNER_ID:
+        global WAITING_FOR_CAPTION
+        user_id = message.from_user.id
+        WAITING_FOR_CAPTION[user_id] = True
+    
+    # إرسال رسالة الطلب
+        request_msg = await message.reply_text("""
+📝 **يرجى إرسال الكليشة الجديدة الآن**
+
+يمكنك استخدام الوسوم التالية:
+- `{app_mention}`: لذكر البوت
+- `{user_mention}`: لذكر المستخدم
+- `{user_name}`: اسم المستخدم الأول
+- `{user_username}`: معرف المستخدم
+
+⚠️ سيتم تجاهل أي رسائل أخرى حتى إرسال الكليشة أو /cancel
+""")
+
+        try:
+        # تعريف دالة للتحقق من الرسائل الواردة
+            def check(_, msg):
+                return msg.from_user.id == user_id and (msg.text or msg.caption)
+        
+        # انتظار الرسالة التالية من المستخدم
+            caption_msg = await client.listen(user_id, filters.text, timeout=120)
+        
+            if caption_msg.text.lower() == "/cancel":
+                del WAITING_FOR_CAPTION[user_id]
+                await request_msg.delete()
+                return await message.reply_text("❌ تم إلغاء تغيير الكليشة.")
+            
+            global CUSTOM_START_CAPTION
+            CUSTOM_START_CAPTION = caption_msg.text
+            del WAITING_FOR_CAPTION[user_id]
+            await request_msg.delete()
+            await message.reply_text("✅ تم تغيير كليشة الاستارت بنجاح!")
+        
+        except asyncio.TimeoutError:
+            del WAITING_FOR_CAPTION[user_id]
+            await request_msg.delete()
+            await message.reply_text("⏱ انتهى وقت الانتظار، يرجى المحاولة مرة أخرى.")
+    else:
+         await message.reply_text("هذا الأمر يخص ❪ المطور الاساسي ❫ بس")
+
+@app.on_message(filters.command(["حذف رساله استارت"], "") & filters.private & ~BANNED_USERS, group=509876)
+@LanguageStart
+async def delete_start_caption(client, message: Message, _):
+    if str(message.from_user.id) == OWNER_ID:
+        global CUSTOM_START_CAPTION
+        CUSTOM_START_CAPTION = None
+        await message.reply_text(" تم حذف كليشة الاستارت المخصصة والعودة للكليشة الافتراضية!")
+    else:
+         await message.reply_text("هذا الأمر يخص ❪ المطور الاساسي ❫ بس")
+         
+         
+@app.on_message(filters.command(["تفعيل استارت"], "") & filters.private & ~BANNED_USERS, group=521340)
+@LanguageStart
+async def enable_start(client, message: Message, _):
+    if str(message.from_user.id) == OWNER_ID:
+        global START_ENABLED
+        START_ENABLED = True
+        await message.reply_text(" تم تفعيل أمر الاستارت بنجاح!")
+    else:
+         await message.reply_text("هذا الأمر يخص ❪ المطور الاساسي ❫ بس")
+         
+         
+@app.on_message(filters.command(["تعطيل استارت"], "") & filters.private & ~BANNED_USERS, group=5778)
+@LanguageStart
+async def disable_start(client, message: Message, _):
+    if str(message.from_user.id) == OWNER_ID:
+        global START_ENABLED
+        START_ENABLED = False
+        await message.reply_text(" تم تعطيل أمر الاستارت بنجاح!")
+    else:
+         await message.reply_text("هذا الأمر يخص ❪ المطور الاساسي ❫ بس")
+
+@app.on_message(filters.command(["start"]) & filters.private & ~BANNED_USERS)
+@LanguageStart
+async def start_pm(client, message: Message, _):
+    if not START_ENABLED:
+        return await message.reply_text("أمر الاستارت معطل حالياً من قبل المطور.")
+    
+    await add_served_user(message.from_user.id)
+    
+    # إرسال الملصق أولاً
+    bot_user = await client.get_me()
+    sticker_message = await message.reply_sticker(sticker=random.choice(STICKERS))
+    asyncio.create_task(delete_sticker_after_delay(sticker_message, 2))
+    
+    if len(message.text.split()) > 1:
+        name = message.text.split(None, 1)[1]
+        if name.startswith("help"):
+            keyboard = help_keyboard(_)
+            return await message.reply_video(
+                video=HELP_VID_URL,
+                caption=_["help_1"].format(config.SUPPORT_CHAT),
+                reply_markup=keyboard,
+            )
+        elif name.startswith("sud"):
+            await sudoers_list(client=client, message=message, _=_)
+            if await is_on_off(2):
+                await app.send_message(
+                    chat_id=config.LOGGER_ID,
+                    text=f"{message.from_user.mention} قام بتشغيل البوت للتحقق من قائمة المطورين.\n\nID: {message.from_user.id}\nUsername: @{message.from_user.username}",
+                )
+        elif name.startswith("inf"):
+            m = await message.reply_text("🔎 جاري البحث...")
+            query = str(name).replace("info_", "", 1)
+            query = f"https://www.youtube.com/watch?v={query}"
+            results = VideosSearch(query, limit=1)
+            for result in (await results.next())["result"]:
+                title = result["title"]
+                duration = result["duration"]
+                views = result["viewCount"]["short"]
+                thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+                channellink = result["channel"]["link"]
+                channel = result["channel"]["name"]
+                link = result["link"]
+                published = result["publishedTime"]
+            searched_text = _["start_6"].format(
+                title, duration, views, published, channellink, channel, app.mention
+            )
+            key = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(text=_["S_B_6"], url=link),
+                        InlineKeyboardButton(text=_["S_B_4"], url=config.SUPPORT_CHAT),
+                    ]
+                ]
+            )
+            await m.delete()
+            await message.reply_photo(
+                photo=thumbnail,
+                caption=searched_text,
+                reply_markup=key,
+            )
+            if await is_on_off(2):
+                await app.send_message(
+                    chat_id=config.LOGGER_ID,
+                    text=f"{message.from_user.mention} قام بتشغيل البوت للتحقق من معلومات الأغنية.\n\nID: {message.from_user.id}\nUsername: @{message.from_user.username}",
+                )
+    else:
+        out = private_panel(_)
+        try:
+            served_chats = len(await get_served_chats())
+            served_users = len(await get_served_users())
+            
+            bot_info = {
+                'profile_path': await client.download_media(bot_user.photo.big_file_id),
+                'bot_name': bot_user.first_name,
+                'bot_username': bot_user.username,
+                'bot_id': bot_user.id,
+                'served_users': served_users,
+                'served_chats': served_chats
+            }
+            photo_path = await get_promo_thumb(bot_info)
+            photo = photo_path
+        except Exception as e:
+            photo = None
+            print(f"Error creating promo image: {e}")
+        
+        UP, CPU, RAM, DISK = await bot_sys_stats()
+        
+        # استخدام الكليشة المخصصة إذا وجدت، وإلا استخدام الافتراضية
+        caption_text = CUSTOM_START_CAPTION if CUSTOM_START_CAPTION else DEFAULT_START_CAPTION
+        caption_text = caption_text.format(
+            app_mention=app.mention,
+            user_mention=message.from_user.mention,
+            user_name=message.from_user.first_name,
+            user_username=message.from_user.username
+        )
+        
+        # الحصول على معلومات المطور
+        try:
+            owner = await client.get_users(config.OWNER_ID)
+            owner_name = owner.first_name
+            owner_button = InlineKeyboardButton(
+                text=f" {owner_name}",
+                user_id=config.OWNER_ID
+            )
+        except Exception as e:
+            print(f"Error getting owner info: {e}")
+            owner_button = InlineKeyboardButton(
+                text="👑",
+                user_id=config.OWNER_ID
+            )
+        
+        if photo:
+            try:
+                await message.reply_photo(
+                    photo=photo,
+                    caption=caption_text,
+                    reply_markup=InlineKeyboardMarkup([[owner_button]])
+                )
+            except Exception as e:
+                print(f"Error sending photo: {e}")
+                await message.reply_text(
+                    text=caption_text,
+                    reply_markup=InlineKeyboardMarkup([[owner_button]])
+                )
+        else:
+            await message.reply_text(
+                text=caption_text,
+                reply_markup=InlineKeyboardMarkup([[owner_button]])
+            )
+        
+        if await is_on_off(2):
+            sender_id = message.from_user.id
+            sender_name = message.from_user.first_name
+            usr = await client.get_chat(message.from_user.id)
+            name = usr.first_name
+            if usr.photo:
+                photo = await app.download_media(usr.photo.big_file_id)
+                await app.send_photo(
+                    config.LOGGER_ID,
+                    photo=photo,
+                    caption=f"<b>┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈\n<blockquote>╮❖ قــام : {message.from_user.mention} \n╯❖ بالضغط علي start في البوت\n\n╭⭗ ᴜꜱᴇʀ : @{message.from_user.username}\n╰⭗ ɪᴅ : {sender_id}</b></blockquote>\n┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(name, url=f"https://t.me/{message.from_user.username}")]])
+                )
+            else:
+                await app.send_message(
+                    chat_id=config.LOG_GROUP_ID,
+                    text=f"<b>┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈\n<blockquote>╮❖ قــام : {message.from_user.mention} \n╯❖ بالضغط علي start في البوت\n\n╭⭗ ᴜꜱᴇʀ : @{message.from_user.username}\n╰⭗ ɪᴅ : {sender_id}</b></blockquote>\n┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(name, url=f"https://t.me/{message.from_user.username}")]]),
+                )
+
+@app.on_message(filters.text & filters.private & ~BANNED_USERS, group=5)
+@LanguageStart
+async def handle_caption_message(client, message: Message, _):
+    user_id = message.from_user.id
+    if WAITING_FOR_CAPTION.get(user_id, False):
+        global CUSTOM_START_CAPTION
+        CUSTOM_START_CAPTION = message.text
+        WAITING_FOR_CAPTION[user_id] = False
+        await message.reply_text(" تم تغيير كليشة الاستارت بنجاح!")
+
+
+# @app.on_message(filters.command(["start"]) & filters.private & ~BANNED_USERS)
+# @LanguageStart
+# async def start_pm(client, message: Message, _):
+    # await add_served_user(message.from_user.id)
+    
+    # # إرسال الملصق أولاً
+    # bot_user = await client.get_me()
+    # sticker_message = await message.reply_sticker(sticker=random.choice(STICKERS))
+    # asyncio.create_task(delete_sticker_after_delay(sticker_message, 2))
+    
+    # if len(message.text.split()) > 1:
+        # name = message.text.split(None, 1)[1]
+        # if name.startswith("help"):
+            # keyboard = help_keyboard(_)
+            # return await message.reply_video(
+                # video=HELP_VID_URL,
+                # caption=_["help_1"].format(config.SUPPORT_CHAT),
+                # reply_markup=keyboard,
+            # )
+        # elif name.startswith("sud"):
+            # await sudoers_list(client=client, message=message, _=_)
+            # if await is_on_off(2):
+                # await app.send_message(
+                    # chat_id=config.LOGGER_ID,
+                    # text=f"{message.from_user.mention} قام بتشغيل البوت للتحقق من قائمة المطورين.\n\nID: {message.from_user.id}\nUsername: @{message.from_user.username}",
+                # )
+        # elif name.startswith("inf"):
+            # m = await message.reply_text("🔎 جاري البحث...")
+            # query = str(name).replace("info_", "", 1)
+            # query = f"https://www.youtube.com/watch?v={query}"
+            # results = VideosSearch(query, limit=1)
+            # for result in (await results.next())["result"]:
+                # title = result["title"]
+                # duration = result["duration"]
+                # views = result["viewCount"]["short"]
+                # thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+                # channellink = result["channel"]["link"]
+                # channel = result["channel"]["name"]
+                # link = result["link"]
+                # published = result["publishedTime"]
+            # searched_text = _["start_6"].format(
+                # title, duration, views, published, channellink, channel, app.mention
+            # )
+            # key = InlineKeyboardMarkup(
+                # [
+                    # [
+                        # InlineKeyboardButton(text=_["S_B_6"], url=link),
+                        # InlineKeyboardButton(text=_["S_B_4"], url=config.SUPPORT_CHAT),
+                    # ]
+                # ]
+            # )
+            # await m.delete()
+            # await message.reply_photo(
+                # photo=thumbnail,
+                # caption=searched_text,
+                # reply_markup=key,
+            # )
+            # if await is_on_off(2):
+                # await app.send_message(
+                    # chat_id=config.LOGGER_ID,
+                    # text=f"{message.from_user.mention} قام بتشغيل البوت للتحقق من معلومات الأغنية.\n\nID: {message.from_user.id}\nUsername: @{message.from_user.username}",
+                # )
+    # else:
+        # out = private_panel(_)
+        # try:
+            # served_chats = len(await get_served_chats())
+            # served_users = len(await get_served_users())
+            
+            # bot_info = {
+                # 'profile_path': await client.download_media(bot_user.photo.big_file_id),
+                # 'bot_name': bot_user.first_name,
+                # 'bot_username': bot_user.username,
+                # 'bot_id': bot_user.id,
+                # 'served_users': served_users,
+                # 'served_chats': served_chats
+            # }
+            # photo_path = await get_promo_thumb(bot_info)
+            # photo = photo_path
+        # except Exception as e:
+            # photo = None
+            # print(f"Error creating promo image: {e}")
+        
+        # UP, CPU, RAM, DISK = await bot_sys_stats()
+        # caption_text = f"""<b>
+# ┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈
+# <u>أهلاً بك في بوت</u>: {app.mention}
+
+# • استطيع تشغيل الاغاني فالكول
+# • واعمل علي حـمايه الجروبـات
+# • يمكنك اضافتي إلى قناتك أو مجموعتك
+# • اعمل بسرعه 100 Mbps في الثانية
+# • لدي الالعاب كثير (بنك. كت. تويت. رو)
+# • تحميل من اليوتيوب بالخاص أو المجموعة
+# ┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈</b>
+# """
+        
+        # if photo:
+            # try:
+                # await message.reply_photo(
+                    # photo=photo,
+                    # caption=caption_text,
+                    # reply_markup=InlineKeyboardMarkup(out),
+                # )
+            # except Exception as e:
+                # print(f"Error sending photo: {e}")
+                # await message.reply_text(
+                    # text=caption_text,
+                    # reply_markup=InlineKeyboardMarkup(out),
+                # )
+        # else:
+            # await message.reply_text(
+                # text=caption_text,
+                # reply_markup=InlineKeyboardMarkup(out),
+            # )
+        
+        # if await is_on_off(2):
+            # sender_id = message.from_user.id
+            # sender_name = message.from_user.first_name
+            # usr = await client.get_chat(message.from_user.id)
+            # name = usr.first_name
+            # if usr.photo:
+                # photo = await app.download_media(usr.photo.big_file_id)
+                # await app.send_photo(
+                    # config.LOGGER_ID,
+                    # photo=photo,
+                    # caption=f"<b>┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈\n<blockquote>╮❖ قــام : {message.from_user.mention} \n╯❖ بالضغط علي start في البوت\n\n╭⭗ ᴜꜱᴇʀ : @{message.from_user.username}\n╰⭗ ɪᴅ : {sender_id}</b></blockquote>\n┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈",
+                    # reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(name, url=f"https://t.me/{message.from_user.username}")]])
+                # )
+            # else:
+                # await app.send_message(
+                    # chat_id=config.LOG_GROUP_ID,
+                    # text=f"<b>┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈\n<blockquote>╮❖ قــام : {message.from_user.mention} \n╯❖ بالضغط علي start في البوت\n\n╭⭗ ᴜꜱᴇʀ : @{message.from_user.username}\n╰⭗ ɪᴅ : {sender_id}</b></blockquote>\n┈┅┅━━━⊷⊰🤍⊱⊶━━━┅┅┈",
+                    # reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(name, url=f"https://t.me/{message.from_user.username}")]]),
+                # )
+
+# الدوال المساعدة لإنشاء الصورة
+os.makedirs("cache", exist_ok=True)
+CACHE_DIR = "cache"
+
+PANEL_W, PANEL_H = 763, 545
+PANEL_X = (1280 - PANEL_W) // 2
+PANEL_Y = 88
+TRANSPARENCY = 170
+INNER_OFFSET = 36
+
+THUMB_W, THUMB_H = 542, 273
+THUMB_X = PANEL_X + (PANEL_W - THUMB_W) // 2
+THUMB_Y = PANEL_Y + INNER_OFFSET
+
+TITLE_X = 529
+META_X = 377
+TITLE_Y = THUMB_Y + THUMB_H + 10
+META_Y = TITLE_Y + 45
+
+BAR_X, BAR_Y = 388, META_Y + 45
+BAR_RED_LEN = 280
+BAR_TOTAL_LEN = 480
+
+ICONS_W, ICONS_H = 415, 45
+ICONS_X = PANEL_X + (PANEL_W - ICONS_W) // 2
+ICONS_Y = BAR_Y + 48
+
+MAX_TITLE_WIDTH = 580
+
+def trim_to_width(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
+    ellipsis = "…"
+    if font.getlength(text) <= max_w:
+        return text
+    for i in range(len(text) - 1, 0, -1):
+        if font.getlength(text[:i] + ellipsis) <= max_w:
+            return text[:i] + ellipsis
+    return ellipsis
+
+get_font = lambda font_size, font_path: ImageFont.truetype(font_path, font_size)
+resize_text = (
+    lambda text_size, text: (text[:text_size] + "...").upper()
+    if len(text) > text_size
+    else text.upper()
+)
+
+translator = Translator()
+async def get_promo_thumb(bot_info: dict):
+    cache_path = f"{CACHE_DIR}/{bot_info.get('bot_id', 'bot')}_promo.png"
+    if os.path.isfile(cache_path):
+        return cache_path
+    if bot_info.get('profile_path') and os.path.isfile(bot_info['profile_path']):
+        base = Image.open(bot_info['profile_path']).resize((1280, 720)).convert("RGBA")
+    else:
+        base = Image.new("RGBA", (1280, 720), (0, 0, 0, 255))
+    bg = ImageEnhance.Brightness(base.filter(ImageFilter.BoxBlur(10))).enhance(0.6)
+
+    panel_area = bg.crop((PANEL_X, PANEL_Y, PANEL_X + PANEL_W, PANEL_Y + PANEL_H))
+    white_overlay = Image.new("RGBA", (PANEL_W, PANEL_H), (255, 255, 255, TRANSPARENCY))
+    frosted = Image.alpha_composite(panel_area, white_overlay)
+    mask = Image.new("L", (PANEL_W, PANEL_H), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, PANEL_W, PANEL_H), 50, fill=255)
+    bg.paste(frosted, (PANEL_X, PANEL_Y), mask)
+
+    draw = ImageDraw.Draw(bg)
+
+    try:
+        title_font = ImageFont.truetype("VeGa/assets/thumb/font2.ttf", 48)
+        name_font = ImageFont.truetype("VeGa/assets/thumb/font2.ttf", 36)
+        meta_font = ImageFont.truetype("VeGa/assets/thumb/font.ttf", 28)
+        small_font = ImageFont.truetype("VeGa/assets/thumb/font.ttf", 24)
+    except OSError:
+        title_font = name_font = meta_font = small_font = ImageFont.load_default()
+    title = "VEGA MUSIC BOT"
+    draw.text((PANEL_X + (PANEL_W - draw.textlength(title, font=title_font)) // 2, PANEL_Y + 20), 
+              title, fill="black", font=title_font)
+    if bot_info.get('profile_path') and os.path.isfile(bot_info['profile_path']):
+        try:
+            profile_img = Image.open(bot_info['profile_path']).convert("RGBA")
+            profile_img = profile_img.resize((280, 280))  # حجم أكبر للصورة
+            
+            mask = Image.new("L", profile_img.size, 0)
+            draw_mask = ImageDraw.Draw(mask)
+            draw_mask.ellipse((0, 0, 280, 280), fill=255)
+            
+            bg.paste(profile_img, (PANEL_X + (PANEL_W - 280) // 2, PANEL_Y + 100), mask)
+        except Exception as e:
+            print(f"Error adding profile image: {e}")
+    bot_name = bot_info.get('bot_name', 'VEGA BOT')
+    bot_username = bot_info.get('bot_username', '@VegaBot')
+    bot_id = bot_info.get('bot_id', '123456789')
+    served_users = bot_info.get('served_users', 0)
+    served_chats = bot_info.get('served_chats', 0)
+
+    # إضافة معلومات المستخدمين والمجموعات
+    stats_text = f"users: {served_users} | Groups: {served_chats}"
+    draw.text((PANEL_X + (PANEL_W - draw.textlength(stats_text, font=meta_font)) // 2, PANEL_Y + 400), 
+              stats_text, fill="black", font=meta_font)
+
+    # معلومات البوت
+    bot_info_text = f"user bot: @{bot_username}"
+    draw.text((PANEL_X + (PANEL_W - draw.textlength(bot_info_text, font=meta_font)) // 2, PANEL_Y + 450), 
+              bot_info_text, fill="black", font=meta_font)
+
+    id_text = f"ID: {bot_id}"
+    draw.text((PANEL_X + (PANEL_W - draw.textlength(id_text, font=meta_font)) // 2, PANEL_Y + 490), 
+              id_text, fill="black", font=meta_font)
+
+    icons_path = "VeGa/assets/thumb/player_icons.png"
+    if os.path.isfile(icons_path):
+        try:
+            icons = Image.open(icons_path).convert("RGBA")
+            icons = icons.resize((400, 80))
+            
+            bg.paste(icons, (PANEL_X + (PANEL_W - 400) // 2, PANEL_Y + 540), icons)
+        except Exception as e:
+            print(f"Error adding player icons: {e}")
+
+    bg.save(cache_path)
+    return cache_path
+
+
+@app.on_message(filters.command(["start"]) & filters.group & ~BANNED_USERS)
+@LanguageStart
+async def start_gp(client, message: Message, _):
+    out = start_panel(_)
+    uptime = int(time.time() - _boot_)
+    try:
+        if START_VIDS:
+            await message.reply_video(
+                random.choice(START_VIDS),
+                caption=_["start_1"].format(app.mention, get_readable_time(uptime)),
+                reply_markup=InlineKeyboardMarkup(out),
+            )
+        else:
+            await message.reply_video(
+                video=HELP_VID_URL,
+                caption=_["start_1"].format(app.mention, get_readable_time(uptime)),
+                reply_markup=InlineKeyboardMarkup(out),
+            )
+    except Exception as e:
+        print(f"Error in group start: {e}")
+        await message.reply_text(
+            _["start_1"].format(app.mention, get_readable_time(uptime)),
+            reply_markup=InlineKeyboardMarkup(out),
+        )
+    await add_served_chat(message.chat.id)
+
+# نظام التفعيل والتعطيل
+activated_chats = []
+deactivated_chats = []
+
+@app.on_message(filters.command(["تفعيل"], prefixes=""), group=996255)
+async def activate_protection(_, message):
+    if message.text.strip() == "تفعيل":
+        user = await app.get_chat_member(message.chat.id, message.from_user.id)
+        if (user.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]) or (message.from_user.id == 8040979911):
+            if message.chat.id not in activated_chats:
+                chat_id = message.chat.id
+                chat_name = message.chat.title
+                admin_users = await get_admin_users(chat_id)
+                count = len(admin_users)
+                
+                await message.reply_text(
+                    f"<b>↢ المجموعه : {chat_name}  \nتم تفعيل المجموعة تقدر تستخدمني ♡</b>",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("ᴠᴇɢᴀ", url="https://t.me/updatevega")]
+                    ])
+                )
+                activated_chats.append(chat_id)
+                
+                if chat_id in deactivated_chats:
+                    deactivated_chats.remove(chat_id)
+            else:
+                await message.reply_text("⚠️ المجموعة مفعلة مسبقًا")
+        else:
+            await message.reply_text("⛔ هذا الأمر مخصص للإدارة فقط")
+
+@app.on_message(filters.command(["تعطيل"], prefixes=""), group=955)
+async def deactivate_protection(_, message):
+    if message.text.strip() == "تعطيل":
+        user = await app.get_chat_member(message.chat.id, message.from_user.id)
+        if (user.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]) or (message.from_user.id == 8040979911):
+            if message.chat.id not in deactivated_chats:
+                chat_id = message.chat.id
+                chat_name = message.chat.title
+                admin_users = await get_admin_users(chat_id)
+                count = len(admin_users)
+                
+                await message.reply_text(
+                    f"<b>↢ المجموعه : {chat_name}  \nتم تعطيل المجموعة ماتقدر تستخدمني ♡</b>",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("ᴠᴇɢᴀ", url="https://t.me/updatevega")]
+                    ])
+                )
+                deactivated_chats.append(chat_id)
+                if chat_id in activated_chats:
+                    activated_chats.remove(chat_id)
+            else:
+                await message.reply_text("⚠️ المجموعة معطلة مسبقًا")
+        else:
+            await message.reply_text("⛔ هذا الأمر مخصص للإدارة فقط")
+
+
+
+@app.on_message(filters.new_chat_members, group=-1)
+async def welcome(client, message: Message):
+    for member in message.new_chat_members:
+        try:
+            language = await get_lang(message.chat.id)
+            _ = get_string(language)
+            chat_id = message.chat.id
+            chat_name = message.chat.title
+            if await is_banned_user(member.id):
+                try:
+                    await message.chat.ban_member(member.id)
+                except:
+                    pass
+            if member.id == app.id:
+                if message.chat.type != ChatType.SUPERGROUP:
+                    await message.reply_text(_["start_4"])
+                    return await app.leave_chat(message.chat.id)
+                if message.chat.id in await blacklisted_chats():
+                    await message.reply_text(
+                        _["start_5"].format(
+                            app.mention,
+                            f"https://t.me/{app.username}?start=sudolist",
+                            config.SUPPORT_CHAT,
+                        ),
+                        disable_web_page_preview=True,
+                    )
+                    return await app.leave_chat(message.chat.id)
+                    
+                owner = await client.get_users(config.OWNER_ID)
+                owner_name = owner.first_name
+                owner_button = [[InlineKeyboardButton(
+                    text=f" {owner_name}",
+                    user_id=config.OWNER_ID
+                )]]
+                
+                await message.reply_video(
+                    random.choice(START_VIDS) if START_VIDS else HELP_VID_URL,
+                    caption=f"""<b>
+⇜ أهلاً بك في بوت: {}\n
+↢ المجموعه : {chat_name}  \nتم تفعيل المجموعة تقدر تستخدمني ♡</b>
+                    """,
+                    reply_markup=InlineKeyboardMarkup(owner_button),
+                )
+                await add_served_chat(message.chat.id)
+                await message.stop_propagation()
+        except Exception as ex:
+            print(f"Error بالانضمام البوت{ex}")
